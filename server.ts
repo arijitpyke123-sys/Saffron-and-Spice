@@ -28,15 +28,17 @@ async function startServer() {
     }
   }
 
-  // Connect to MongoDB
+  // Connect to MongoDB asynchronously - don't block startup
   console.log('Initializing MongoDB connection...');
-  const mongoConnection = await connectToMongoDB();
-  if (mongoConnection) {
-    console.log('MongoDB connected successfully, checking for migration...');
-    await migrateData(db);
-  } else {
-    console.error('MongoDB connection failed during startup. Check MONGODB_URI and Network Access rules.');
-  }
+  connectToMongoDB().then(conn => {
+    if (conn) {
+      console.log('MongoDB connected background task complete.');
+      // Migration should be a manual or one-time task, not on every cold start
+      // migrateData(db); 
+    }
+  }).catch(err => {
+    console.error('MongoDB background connection failed:', err);
+  });
 
   // API routes
   app.get("/api/ping", (req, res) => {
@@ -44,37 +46,28 @@ async function startServer() {
   });
 
   app.get("/api/health", async (req, res) => {
-    let migrationStatus = "not_started";
     const error = getMongoDBError();
+    const isConnected = mongoose.connection.readyState === 1;
     
-    if (mongoConnection) {
-      try {
-        const menuCount = await Menu.countDocuments();
-        const reviewCount = await Review.countDocuments();
-        const orderCount = await Order.countDocuments();
-        migrationStatus = `completed (Menu: ${menuCount}, Reviews: ${reviewCount}, Orders: ${orderCount})`;
-      } catch (e) {
-        migrationStatus = "error";
-      }
-    }
     res.json({ 
       status: "ok", 
-      mongodb: !!mongoConnection,
+      mongodb: isConnected,
       error: error || (process.env.MONGODB_URI ? null : "MONGODB_URI_MISSING"),
-      migration: migrationStatus
+      env: process.env.NODE_ENV
     });
   });
 
   // Menu endpoints
   app.get("/api/menu", async (req, res) => {
     try {
-      if (mongoConnection) {
+      const isConnected = mongoose.connection.readyState === 1 || await connectToMongoDB();
+      if (isConnected) {
         const menu = await Menu.find();
         return res.json(menu);
       }
       
       if (!db) {
-        return res.status(503).json({ error: "Database not available" });
+        db = await (await import("./src/db.js")).getDb();
       }
 
       const menu = db.prepare('SELECT * FROM menu').all();
@@ -117,16 +110,17 @@ async function startServer() {
           return res.json(formattedReviews);
         }
       }
-
+      
       // If MongoDB is configured, use it
-      if (mongoConnection) {
+      const isConnected = mongoose.connection.readyState === 1 || await connectToMongoDB();
+      if (isConnected) {
         const reviews = await Review.find().sort({ createdAt: -1 });
         return res.json(reviews);
       }
 
-      // Fallback to SQLite if Airtable and MongoDB are not configured or fail
+      // Fallback to SQLite
       if (!db) {
-        return res.status(503).json({ error: "Database not available" });
+        db = await (await import("./src/db.js")).getDb();
       }
       const reviews = db.prepare('SELECT * FROM reviews ORDER BY createdAt DESC').all();
       res.json(reviews);
@@ -179,7 +173,8 @@ async function startServer() {
       }
 
       // If MongoDB is configured, use it
-      if (mongoConnection) {
+      const isConnected = mongoose.connection.readyState === 1 || await connectToMongoDB();
+      if (isConnected) {
         const newReview = new Review({
           name,
           rating,
@@ -193,7 +188,7 @@ async function startServer() {
 
       // Fallback to SQLite
       if (!db) {
-        return res.status(503).json({ error: "Database not available" });
+        db = await (await import("./src/db.js")).getDb();
       }
       const result = db.prepare('INSERT INTO reviews (name, rating, comment, dish, avatar) VALUES (?, ?, ?, ?, ?)').run(
         name, rating, comment, dish, avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
@@ -211,7 +206,8 @@ async function startServer() {
     try {
       const { id, userId, total, type, items } = req.body;
       
-      if (mongoConnection) {
+      const isConnected = mongoose.connection.readyState === 1 || await connectToMongoDB();
+      if (isConnected) {
         const newOrder = new Order({
           id,
           userId,
@@ -224,7 +220,7 @@ async function startServer() {
       }
 
       if (!db) {
-        return res.status(503).json({ error: "Database not available" });
+        db = await (await import("./src/db.js")).getDb();
       }
 
       db.prepare('INSERT INTO orders (id, userId, total, type, items) VALUES (?, ?, ?, ?, ?)').run(
@@ -245,13 +241,14 @@ async function startServer() {
     try {
       const { userId } = req.params;
       
-      if (mongoConnection) {
+      const isConnected = mongoose.connection.readyState === 1 || await connectToMongoDB();
+      if (isConnected) {
         const orders = await Order.find({ userId }).sort({ date: -1 });
         return res.json(orders);
       }
 
       if (!db) {
-        return res.status(503).json({ error: "Database not available" });
+        db = await (await import("./src/db.js")).getDb();
       }
 
       const orders = db.prepare('SELECT * FROM orders WHERE userId = ? ORDER BY date DESC').all(userId);
