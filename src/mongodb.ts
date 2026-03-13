@@ -70,6 +70,10 @@ export const Review = mongoose.models.Review || mongoose.model<IReview>('Review'
 export const Order = mongoose.models.Order || mongoose.model<IOrder>('Order', OrderSchema);
 
 export async function migrateData(sqliteDb: any) {
+  if (!sqliteDb) {
+    console.log('SQLite database not available, skipping migration.');
+    return;
+  }
   console.log('Starting data migration from SQLite to MongoDB...');
 
   try {
@@ -138,7 +142,13 @@ export async function migrateData(sqliteDb: any) {
 
 let lastError: string | null = null;
 
+let cachedConnection: any = null;
+
 export async function connectToMongoDB() {
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
+  }
+
   if (!MONGODB_URI) {
     console.error('MONGODB_URI is missing from environment variables');
     return null;
@@ -146,9 +156,10 @@ export async function connectToMongoDB() {
   
   try {
     console.log('Attempting to connect to MongoDB...');
-    await mongoose.connect(MONGODB_URI, {
+    const conn = await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000, // Timeout after 5s
     });
+    cachedConnection = conn;
     const dbName = mongoose.connection.name;
     console.log(`Connected to MongoDB database: ${dbName}`);
     await seedData();

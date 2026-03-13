@@ -51,6 +51,10 @@ async function startServer() {
         return res.json(menu);
       }
       
+      if (!db) {
+        return res.status(503).json({ error: "Database not available" });
+      }
+
       const menu = db.prepare('SELECT * FROM menu').all();
       // Convert isVeg from 0/1 to boolean
       const formattedMenu = menu.map((item: any) => ({
@@ -99,6 +103,9 @@ async function startServer() {
       }
 
       // Fallback to SQLite if Airtable and MongoDB are not configured or fail
+      if (!db) {
+        return res.status(503).json({ error: "Database not available" });
+      }
       const reviews = db.prepare('SELECT * FROM reviews ORDER BY createdAt DESC').all();
       res.json(reviews);
     } catch (error: any) {
@@ -163,6 +170,9 @@ async function startServer() {
       }
 
       // Fallback to SQLite
+      if (!db) {
+        return res.status(503).json({ error: "Database not available" });
+      }
       const result = db.prepare('INSERT INTO reviews (name, rating, comment, dish, avatar) VALUES (?, ?, ?, ?, ?)').run(
         name, rating, comment, dish, avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
       );
@@ -191,6 +201,10 @@ async function startServer() {
         return res.json(newOrder);
       }
 
+      if (!db) {
+        return res.status(503).json({ error: "Database not available" });
+      }
+
       db.prepare('INSERT INTO orders (id, userId, total, type, items) VALUES (?, ?, ?, ?, ?)').run(
         id, userId, total, type, JSON.stringify(items)
       );
@@ -212,6 +226,10 @@ async function startServer() {
       if (mongoConnection) {
         const orders = await Order.find({ userId }).sort({ date: -1 });
         return res.json(orders);
+      }
+
+      if (!db) {
+        return res.status(503).json({ error: "Database not available" });
       }
 
       const orders = db.prepare('SELECT * FROM orders WHERE userId = ? ORDER BY date DESC').all(userId);
@@ -237,9 +255,20 @@ async function startServer() {
     app.use(express.static("dist"));
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  // Only listen if not in a serverless environment
+  if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
+  
+  return app;
 }
 
-startServer();
+const appPromise = startServer();
+
+// Export the app for Vercel
+export default async (req: any, res: any) => {
+  const app = await appPromise;
+  return app(req, res);
+};
