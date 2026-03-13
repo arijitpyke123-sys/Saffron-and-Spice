@@ -2,12 +2,9 @@ import path from 'path';
 
 let db: any = null;
 
-const initDb = async () => {
-  if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
-    console.log('Skipping SQLite initialization on Vercel.');
-    return;
-  }
-
+export const getDb = async () => {
+  if (db) return db;
+  
   if (process.env.VERCEL) {
     console.log('Running on Vercel, skipping SQLite initialization.');
     return null;
@@ -161,8 +158,7 @@ const initDb = async () => {
   } catch (e) {
     console.warn('SQLite initialization failed or skipped:', e);
   }
+  return db;
 };
 
-await initDb();
-
-export default db;
+export default getDb;

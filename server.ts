@@ -1,7 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import db from "./src/db.js";
 import { connectToMongoDB, Menu, Review, Order, migrateData, getMongoDBError } from "./src/mongodb.js";
 
 dotenv.config();
@@ -18,6 +17,17 @@ async function startServer() {
   console.log('- VERCEL:', process.env.VERCEL);
   console.log('- MONGODB_URI present:', !!process.env.MONGODB_URI);
 
+  // Load SQLite DB only if not on Vercel
+  let db: any = null;
+  if (!process.env.VERCEL) {
+    try {
+      const { getDb } = await import("./src/db.js");
+      db = await getDb();
+    } catch (err) {
+      console.warn("Could not load SQLite DB:", err);
+    }
+  }
+
   // Connect to MongoDB
   console.log('Initializing MongoDB connection...');
   const mongoConnection = await connectToMongoDB();
@@ -29,6 +39,10 @@ async function startServer() {
   }
 
   // API routes
+  app.get("/api/ping", (req, res) => {
+    res.json({ message: "pong", timestamp: new Date().toISOString(), env: process.env.NODE_ENV });
+  });
+
   app.get("/api/health", async (req, res) => {
     let migrationStatus = "not_started";
     const error = getMongoDBError();
@@ -281,6 +295,15 @@ const appPromise = startServer();
 
 // Export the app for Vercel
 export default async (req: any, res: any) => {
-  const app = await appPromise;
-  return app(req, res);
+  try {
+    const app = await appPromise;
+    return app(req, res);
+  } catch (err: any) {
+    console.error("CRITICAL: Server failed to start:", err);
+    res.status(500).json({ 
+      error: "Internal Server Error", 
+      message: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  }
 };
