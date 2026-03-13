@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import cors from "cors";
 import db from "./src/db.js";
@@ -13,6 +12,11 @@ async function startServer() {
 
   app.use(cors());
   app.use(express.json());
+
+  console.log('Environment Check:');
+  console.log('- NODE_ENV:', process.env.NODE_ENV);
+  console.log('- VERCEL:', process.env.VERCEL);
+  console.log('- MONGODB_URI present:', !!process.env.MONGODB_URI);
 
   // Connect to MongoDB
   console.log('Initializing MongoDB connection...');
@@ -249,13 +253,15 @@ async function startServer() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+    const viteModule = "vite";
+    const { createServer: createViteServer } = await import(viteModule);
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (process.env.NODE_ENV === "production") {
     app.use(express.static("dist"));
   }
 

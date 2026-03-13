@@ -1,4 +1,3 @@
-import Database from 'better-sqlite3';
 import path from 'path';
 
 let db: any = null;
@@ -10,7 +9,8 @@ const initDb = async () => {
   }
 
   try {
-    const { default: Database } = await import('better-sqlite3');
+    const sqliteModule = 'better-sqlite3';
+    const { default: Database } = await import(sqliteModule);
     db = new Database('restaurant.db');
 
     // Initialize database

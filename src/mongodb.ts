@@ -145,9 +145,12 @@ let lastError: string | null = null;
 let cachedConnection: any = null;
 
 export async function connectToMongoDB() {
-  const uri = process.env.MONGODB_URI;
+  let uri = process.env.MONGODB_URI;
+  
+  if (uri) uri = uri.trim();
   
   if (cachedConnection && mongoose.connection.readyState === 1) {
+    console.log('Using cached MongoDB connection');
     return cachedConnection;
   }
 
@@ -159,19 +162,29 @@ export async function connectToMongoDB() {
   }
   
   try {
-    console.log('Attempting to connect to MongoDB (URI starts with:', uri.substring(0, 20), '...)');
+    console.log('Attempting to connect to MongoDB...');
+    // Don't log the full URI for security, but log the masked version
+    const maskedUri = uri.replace(/\/\/.*@/, '//****:****@');
+    console.log(`Target URI: ${maskedUri}`);
+
     const conn = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 10000, // Increase timeout to 10s for cold starts
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
     });
+    
     cachedConnection = conn;
-    const dbName = mongoose.connection.name;
-    console.log(`Connected to MongoDB database: ${dbName}`);
+    console.log(`Successfully connected to MongoDB database: ${mongoose.connection.name}`);
+    
     await seedData();
     lastError = null;
     return mongoose.connection;
   } catch (error: any) {
     lastError = error.message;
-    console.error('MongoDB connection error:', error);
+    console.error('--- MongoDB Connection Error ---');
+    console.error('Message:', error.message);
+    console.error('Code:', error.code);
+    if (error.reason) console.error('Reason:', error.reason);
+    console.error('--------------------------------');
     return null;
   }
 }
@@ -181,9 +194,13 @@ export function getMongoDBError() {
 }
 
 async function seedData() {
-  const menuCount = await Menu.countDocuments();
-  if (menuCount === 0) {
-    const initialMenu = [
+  console.log('Checking if database needs seeding...');
+  try {
+    const menuCount = await Menu.countDocuments();
+    console.log(`Current menu count: ${menuCount}`);
+    if (menuCount === 0) {
+      console.log('Seeding menu data...');
+      const initialMenu = [
       {
         id: '1',
         name: "Murgh Makhani",
@@ -281,4 +298,7 @@ async function seedData() {
     await Review.insertMany(initialReviews);
     console.log('Reviews seeded');
   }
+} catch (error) {
+  console.error('Error during database seeding:', error);
+}
 }
