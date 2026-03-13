@@ -15,9 +15,13 @@ async function startServer() {
   app.use(express.json());
 
   // Connect to MongoDB
+  console.log('Initializing MongoDB connection...');
   const mongoConnection = await connectToMongoDB();
   if (mongoConnection) {
+    console.log('MongoDB connected successfully, checking for migration...');
     await migrateData(db);
+  } else {
+    console.error('MongoDB connection failed during startup. Check MONGODB_URI and Network Access rules.');
   }
 
   // API routes

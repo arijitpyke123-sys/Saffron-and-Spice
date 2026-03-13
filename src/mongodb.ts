@@ -145,19 +145,23 @@ let lastError: string | null = null;
 let cachedConnection: any = null;
 
 export async function connectToMongoDB() {
+  const uri = process.env.MONGODB_URI;
+  
   if (cachedConnection && mongoose.connection.readyState === 1) {
     return cachedConnection;
   }
 
-  if (!MONGODB_URI) {
-    console.error('MONGODB_URI is missing from environment variables');
+  if (!uri) {
+    const msg = 'MONGODB_URI is missing from environment variables';
+    console.error(msg);
+    lastError = msg;
     return null;
   }
   
   try {
-    console.log('Attempting to connect to MongoDB...');
-    const conn = await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s
+    console.log('Attempting to connect to MongoDB (URI starts with:', uri.substring(0, 20), '...)');
+    const conn = await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 10000, // Increase timeout to 10s for cold starts
     });
     cachedConnection = conn;
     const dbName = mongoose.connection.name;
