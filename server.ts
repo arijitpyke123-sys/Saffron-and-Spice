@@ -2,8 +2,8 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import cors from "cors";
-import db from "./src/db";
-import { connectToMongoDB, Menu, Review, Order, migrateData, getMongoDBError } from "./src/mongodb";
+import db from "./src/db.js";
+import { connectToMongoDB, Menu, Review, Order, migrateData, getMongoDBError } from "./src/mongodb.js";
 
 dotenv.config();
 
