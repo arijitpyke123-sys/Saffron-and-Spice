@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import mongoose from "mongoose";
 import { connectToMongoDB, Menu, Review, Order, migrateData, getMongoDBError } from "./src/mongodb.js";
 
 dotenv.config();
@@ -263,18 +264,7 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
-    try {
-      const vite = await (new Function('return import("vite")'))().then((m: any) => m.createServer({
-        server: { middlewareMode: true },
-        appType: "spa",
-      }));
-      app.use(vite.middlewares);
-    } catch (e) {
-      console.warn("Vite could not be loaded:", e);
-    }
-  } else if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production") {
     app.use(express.static("dist"));
   }
 
@@ -287,6 +277,8 @@ async function startServer() {
   
   return app;
 }
+
+export { startServer };
 
 const appPromise = startServer();
 

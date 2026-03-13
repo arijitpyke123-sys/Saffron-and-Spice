@@ -5,7 +5,7 @@
   "homepage": "https://arijitpyke123-sys.github.io/Saffron-and-Spice/",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "tsx dev.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
