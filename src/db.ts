@@ -8,9 +8,13 @@ const initDb = async () => {
     return;
   }
 
+  if (process.env.VERCEL) {
+    console.log('Running on Vercel, skipping SQLite initialization.');
+    return null;
+  }
+
   try {
-    const sqliteModule = 'better-sqlite3';
-    const { default: Database } = await import(sqliteModule);
+    const { default: Database } = await (new Function('return import("better-sqlite3")'))();
     db = new Database('restaurant.db');
 
     // Initialize database
