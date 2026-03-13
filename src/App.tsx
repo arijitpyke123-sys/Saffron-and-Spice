@@ -8,6 +8,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 const REVIEWS: any[] = [];
 const MENU_ITEMS: any[] = [];
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
 type CartItem = {
   id: string;
   name: string;
@@ -247,7 +249,7 @@ export default function App() {
   useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const response = await fetch('/api/menu');
+        const response = await fetch(`${API_BASE_URL}/api/menu`);
         if (response.ok) {
           const data = await response.json();
           setMenuItems(data);
@@ -264,7 +266,7 @@ export default function App() {
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const response = await fetch('/api/reviews');
+        const response = await fetch(`${API_BASE_URL}/api/reviews`);
         if (response.ok) {
           const data = await response.json();
           if (data && data.length > 0) {
@@ -290,7 +292,7 @@ export default function App() {
     e.preventDefault();
     setIsSubmittingReview(true);
     try {
-      const response = await fetch('/api/reviews', {
+      const response = await fetch(`${API_BASE_URL}/api/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -455,7 +457,7 @@ export default function App() {
     };
     
     try {
-      await fetch('/api/orders', {
+      await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
